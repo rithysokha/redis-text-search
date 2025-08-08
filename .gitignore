@@ -1,0 +1,7 @@
+/.env
+/.venv
+/.vscode
+/examples.md
+/README.md
+/__pycache__
+/images

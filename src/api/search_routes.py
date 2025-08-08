@@ -1,0 +1,179 @@
+from flask import Blueprint, request, jsonify
+import logging
+from src.core.redisearch_service import RediSearchService
+from services.postgres_service import postgres_service
+
+search_bp = Blueprint('search', __name__)
+redisearch_service = RediSearchService()
+
+
+@search_bp.route('/index/all', methods=['POST'])
+def index_all_documents():
+    
+    try:
+        clear_existing = request.json.get('clear_existing', True) if request.is_json else True
+        
+        if clear_existing:
+            redisearch_service.clear_suggestions()
+        
+        postgres_products = postgres_service.fetch_products()
+        
+        if not postgres_products:
+            return jsonify({
+                'success': False,
+                'error': 'No products found in PostgreSQL database'
+            }), 404
+        
+        stat = redisearch_service.bulk_index_from_postgres(postgres_products)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Successfully indexed {stat} products from PostgreSQL',
+        }), 200
+        
+    except Exception as e:
+        logging.error(f"Error in index_all_documents: {e}")
+        return jsonify({'success': False, 'error': f'Internal server error: {str(e)}'}), 500
+
+
+@search_bp.route('/index', methods=['POST'])
+def index_document():
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No JSON data provided'}), 400
+        
+        required_fields = ['sku', 'image', 'names']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+        
+        sku = str(data['sku'])
+        image = data['image']
+        names = data['names']
+        doc_id = f"{sku}:{image}"
+        title = f"{sku} {names}"
+        content = f"{sku} {names} {image}"
+        tags = [sku]
+        metadata = {'sku': sku, 'image': image, 'names': names}
+        
+        success = redisearch_service.index_document(doc_id, title, content, tags, metadata)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': f'Document {doc_id} indexed successfully'
+            }), 201
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to index document'
+            }), 500
+    except Exception as e:
+        logging.error(f"Error in index_document: {e}")
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+
+
+@search_bp.route('/fulltext', methods=['GET'])
+def full_text_search():
+    try:
+        query = request.args.get('q', '').strip()
+        limit = request.args.get('limit', 10, type=int)
+        
+        if not query:
+            return jsonify({'error': 'Query parameter "q" is required'}), 400
+        
+        if limit < 1 or limit > 100:
+            return jsonify({'error': 'Limit must be between 1 and 100'}), 400
+        
+        results = redisearch_service.full_text_search(query, limit)
+        
+        return jsonify({
+            'query': query,
+            'results_count': len(results),
+            'results': results
+        }), 200
+        
+    except Exception as e:
+        logging.error(f"Error in full_text_search: {e}")
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+
+
+@search_bp.route('/fuzzy', methods=['GET'])
+def fuzzy_search():
+    try:
+        query = request.args.get('q', '').strip()
+        max_distance = request.args.get('distance', 2, type=int)
+        limit = request.args.get('limit', 10, type=int)
+        
+        if not query:
+            return jsonify({'error': 'Query parameter "q" is required'}), 400
+        
+        if max_distance < 1 or max_distance > 5:
+            return jsonify({'error': 'Distance must be between 1 and 5'}), 400
+            
+        if limit < 1 or limit > 100:
+            return jsonify({'error': 'Limit must be between 1 and 100'}), 400
+        
+        results = redisearch_service.fuzzy_search(query, max_distance, limit)
+        
+        return jsonify({
+            'query': query,
+            'max_distance': max_distance,
+            'results_count': len(results),
+            'results': results
+        }), 200
+        
+    except Exception as e:
+        logging.error(f"Error in fuzzy_search: {e}")
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+
+
+@search_bp.route('/suggest', methods=['GET'])
+def get_suggestions():
+    try:
+        prefix = request.args.get('prefix', '').strip()
+        limit = request.args.get('limit', 10, type=int)
+        fuzzy = request.args.get('fuzzy', 'false').lower() == 'true'
+        with_scores = request.args.get('with_scores', 'false').lower() == 'true'
+        
+        if limit < 1 or limit > 50:
+            return jsonify({'error': 'Limit must be between 1 and 50'}), 400
+        
+        suggestions = redisearch_service.get_suggestions(prefix, limit, fuzzy, with_scores)
+        
+        return jsonify({
+            'prefix': prefix,
+            'fuzzy_enabled': fuzzy,
+            'suggestions_count': len(suggestions),
+            'suggestions': suggestions
+        }), 200
+        
+    except Exception as e:
+        logging.error(f"Error in get_suggestions: {e}")
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+
+
+@search_bp.route('/autocomplete', methods=['GET'])
+def autocomplete():
+    try:
+        prefix = request.args.get('prefix', '').strip()
+        limit = request.args.get('limit', 10, type=int)
+        
+        if not prefix:
+            return jsonify({'error': 'Prefix parameter is required'}), 400
+        
+        if limit < 1 or limit > 50:
+            return jsonify({'error': 'Limit must be between 1 and 50'}), 400
+        
+        completions = redisearch_service.get_suggestions(prefix, limit, fuzzy=True, with_scores=False)
+        
+        return jsonify({
+            'prefix': prefix,
+            'completions_count': len(completions),
+            'completions': completions
+        }), 200
+        
+    except Exception as e:
+        logging.error(f"Error in autocomplete: {e}")
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
