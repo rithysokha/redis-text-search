@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 import logging
 from src.core.redisearch_service import RediSearchService
-from services.postgres_service import postgres_service
+from src.services.postgres_service import postgres_service
 
 search_bp = Blueprint('search', __name__)
 redisearch_service = RediSearchService()

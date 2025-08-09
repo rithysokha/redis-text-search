@@ -1,6 +1,6 @@
 import logging
 from typing import Dict
-from postgres_service import postgres_service
+from src.services.postgres_service import postgres_service
 import time
 
 class DataSyncService:

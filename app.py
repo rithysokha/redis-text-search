@@ -1,7 +1,6 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
 from config import redis_config
-from postgres_service import postgres_service
 import logging
 import os
 
@@ -9,6 +8,7 @@ from src.api.search_routes import search_bp
 from src.api.sync_routes import sync_bp
 from src.api.postgres_routes import postgres_bp
 from src.core.redisearch_service import RediSearchService
+from src.services.postgres_service import PostgreSQLService
 
 logging.basicConfig(
     level=logging.INFO,
@@ -19,6 +19,7 @@ app = Flask(__name__)
 CORS(app)
 
 redisearch_service = RediSearchService()
+postgres_service = PostgreSQLService()
 
 app.register_blueprint(search_bp, url_prefix='/search')
 app.register_blueprint(sync_bp, url_prefix='/sync')

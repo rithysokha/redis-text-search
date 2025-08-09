@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 import logging
 from typing import List, Dict
 
-# Load environment variables
 load_dotenv()
 
 class PostgreSQLService:

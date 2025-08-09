@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 import logging
-from postgres_service import postgres_service
+from src.services.postgres_service import postgres_service
 
 postgres_bp = Blueprint('postgres', __name__)
 
