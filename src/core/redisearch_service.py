@@ -16,7 +16,16 @@ class RediSearchService:
         
         self.suggestion_service = SuggestionService(self.redis_client, self.suggestions_key)
         self.document_service = DocumentIndexService(self.redis_client, self.documents_key, self.inverted_index_key)
-        self.search_service = SearchService(self.redis_client, self.documents_key, self.inverted_index_key)
+        self.search_service = SearchService(self.redis_client, self.index_name, self.documents_key, self.inverted_index_key)
+
+    def test_redisearch_availability(self) -> bool:
+        """Test if RediSearch module is available"""
+        try:
+            self.redis_client.execute_command('FT._LIST')
+            return True
+        except Exception as e:
+            logging.error(f"RediSearch not available: {e}")
+            return False
 
     def add_suggestion(self, suggestion: str, score: float = 1.0) -> bool:
         return self.suggestion_service.add_suggestion(suggestion, score)
@@ -37,6 +46,7 @@ class RediSearchService:
         return self.search_service.fuzzy_search(query, max_distance, limit)
 
     def bulk_index_from_postgres(self, postgres_products: List[Dict]) -> Dict:
+        """Bulk index products using RediSearch and suggestions"""
         try:
             stats = {
                 'total_products': len(postgres_products),
@@ -50,21 +60,21 @@ class RediSearchService:
             for product in postgres_products:
                 sku = str(product.get('sku', ''))
                 names = str(product.get('names', ''))
+                image = str(product.get('image', ''))
                 
                 if sku and names and len(names.strip()) > 0:
-                    weight = 1.0
+                    doc_id = f"{sku}:{image}" if image else sku
+                    title = f"{sku} {names}"
+                    content = f"{sku} {names} {image}".strip()
+                    tags = [sku]
+                    metadata = {'sku': sku, 'names': names, 'image': image}
                     
-                    if self.suggestion_service.index_document_for_suggestions(sku, names, weight):
+                    if self.index_document(doc_id, title, content, tags, metadata):
+                        weight = 1.0
+                        self.suggestion_service.index_document_for_suggestions(sku, names, weight)
                         stats['successfully_indexed'] += 1
                     else:
                         stats['errors'].append(f"Failed to index SKU {sku}")
-                        
-                doc_id = f"{sku}:"
-                title = f"{sku} {names}"
-                content = f"{sku}{names}"
-                tags = [sku]
-                metadata = {'sku': sku, 'names': names}
-                self.index_document(doc_id, title, content, tags, metadata)
             
             final_count = self.suggestion_service.get_suggestion_length()
             stats['suggestions_added'] = final_count - initial_count

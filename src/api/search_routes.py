@@ -1,7 +1,9 @@
 from flask import Blueprint, request, jsonify
 import logging
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from src.core.redisearch_service import RediSearchService
-from src.services.postgres_service import postgres_service
 
 search_bp = Blueprint('search', __name__)
 redisearch_service = RediSearchService()
@@ -9,12 +11,20 @@ redisearch_service = RediSearchService()
 
 @search_bp.route('/index/all', methods=['POST'])
 def index_all_documents():
-    
     try:
+        from src.services.postgres_service import postgres_service
+        
+        if not redisearch_service.test_redisearch_availability():
+            return jsonify({
+                'success': False,
+                'error': 'RediSearch module not available. Please install Redis Stack.'
+            }), 500
+        
         clear_existing = request.json.get('clear_existing', True) if request.is_json else True
         
         if clear_existing:
-            redisearch_service.clear_suggestions()
+            redisearch_service.clear_all_data()
+            logging.info("Cleared existing search data and RediSearch index")
         
         postgres_products = postgres_service.fetch_products()
         
@@ -24,11 +34,18 @@ def index_all_documents():
                 'error': 'No products found in PostgreSQL database'
             }), 404
         
-        stat = redisearch_service.bulk_index_from_postgres(postgres_products)
+        stats = redisearch_service.bulk_index_from_postgres(postgres_products)
+        
+        if 'error' in stats:
+            return jsonify({
+                'success': False,
+                'error': stats['error']
+            }), 500
         
         return jsonify({
             'success': True,
-            'message': f'Successfully indexed {stat} products from PostgreSQL',
+            'message': f'Successfully indexed {stats["successfully_indexed"]} products using RediSearch',
+            'stats': stats
         }), 200
         
     except Exception as e:

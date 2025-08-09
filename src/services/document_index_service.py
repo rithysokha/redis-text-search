@@ -13,9 +13,9 @@ class DocumentIndexService:
         self.text_processor = TextProcessor()
 
     def index_document(self, doc_id: str, title: str, content: str, tags: List[str] = None, metadata: Dict = None) -> bool:
+        """Index document using RediSearch native indexing"""
         try:
             document = {
-                'id': doc_id,
                 'title': title,
                 'content': content,
                 'tags': ','.join(tags) if tags else '',
@@ -23,55 +23,39 @@ class DocumentIndexService:
                 'indexed_at': datetime.now().isoformat()
             }
             
+            if metadata:
+                document['sku'] = metadata.get('sku', '')
+                document['names'] = metadata.get('names', '')
+                document['image'] = metadata.get('image', '')
+            
             self.redis_client.hset(
                 f"{self.documents_key}:{doc_id}",
                 mapping=document
             )
             
-            self._create_inverted_index(doc_id, title, content, tags)
-            
-            logging.info(f"Successfully indexed document: {doc_id}")
+            logging.info(f"Successfully indexed document with RediSearch: {doc_id}")
             return True
             
         except Exception as e:
             logging.error(f"Error indexing document {doc_id}: {e}")
             return False
 
-    def _create_inverted_index(self, doc_id: str, title: str, content: str, tags: List[str] = None):
-        words = set()
-        
-        title_words = self.text_processor.extract_words(title.lower())
-        for word in title_words:
-            words.add(word)
-            self.redis_client.sadd(f"{self.inverted_index_key}:title:{word}", doc_id)
-        
-        content_words = self.text_processor.extract_words(content.lower())
-        for word in content_words:
-            words.add(word)
-            self.redis_client.sadd(f"{self.inverted_index_key}:content:{word}", doc_id)
-        
-        if tags:
-            for tag in tags:
-                tag_words = self.text_processor.extract_words(tag.lower())
-                for word in tag_words:
-                    words.add(word)
-                    self.redis_client.sadd(f"{self.inverted_index_key}:tag:{word}", doc_id)
-        
-        if words:
-            self.redis_client.sadd(f"{self.inverted_index_key}:doc_words:{doc_id}", *words)
-
     def clear_all_data(self) -> bool:
+        """Clear all indexed data including RediSearch index"""
         try:
             keys_to_delete = []
             
-            for key in self.redis_client.scan_iter(match=f"{self.documents_key}:*"):
-                keys_to_delete.append(key)
-            
-            for key in self.redis_client.scan_iter(match=f"{self.inverted_index_key}:*"):
-                keys_to_delete.append(key)
+            for _ in self.redis_client.scan_iter(match=f"{self.documents_key}:*"):
+                keys_to_delete.append(_)
             
             if keys_to_delete:
                 self.redis_client.delete(*keys_to_delete)
+            
+            try:
+                self.redis_client.execute_command('FT.DROPINDEX', 'product_index', 'DD')
+                logging.info("Dropped RediSearch index")
+            except Exception as e:
+                logging.warning(f"Could not drop RediSearch index (may not exist): {e}")
             
             logging.info(f"Cleared {len(keys_to_delete)} keys from Redis")
             return True
@@ -81,9 +65,10 @@ class DocumentIndexService:
             return False
 
     def get_document_count(self) -> int:
+        """Get total document count"""
         try:
             count = 0
-            for key in self.redis_client.scan_iter(match=f"{self.documents_key}:*"):
+            for _ in self.redis_client.scan_iter(match=f"{self.documents_key}:*"):
                 count += 1
             return count
         except Exception as e:
