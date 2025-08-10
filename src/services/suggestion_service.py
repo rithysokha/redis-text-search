@@ -1,6 +1,6 @@
 import logging
 from typing import List
-from ..utils.text_processor import TextProcessor
+from src.utils import TextProcessor
 
 
 class SuggestionService:

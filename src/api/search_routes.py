@@ -3,7 +3,7 @@ import logging
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
-from src.core.redisearch_service import RediSearchService
+from src.core import RediSearchService
 
 search_bp = Blueprint('search', __name__)
 redisearch_service = RediSearchService()
@@ -53,42 +53,42 @@ def index_all_documents():
         return jsonify({'success': False, 'error': f'Internal server error: {str(e)}'}), 500
 
 
-@search_bp.route('/index', methods=['POST'])
-def index_document():
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'No JSON data provided'}), 400
+# @search_bp.route('/index', methods=['POST'])
+# def index_document():
+#     try:
+#         data = request.get_json()
+#         if not data:
+#             return jsonify({'error': 'No JSON data provided'}), 400
         
-        required_fields = ['sku', 'image', 'names']
-        for field in required_fields:
-            if field not in data:
-                return jsonify({'error': f'Missing required field: {field}'}), 400
+#         required_fields = ['name', 'image', 'price', 'metadata']
+#         for field in required_fields:
+#             if field not in data:
+#                 return jsonify({'error': f'Missing required field: {field}'}), 400
         
-        sku = str(data['sku'])
-        image = data['image']
-        names = data['names']
-        doc_id = f"{sku}:{image}"
-        title = f"{sku} {names}"
-        content = f"{sku} {names} {image}"
-        tags = [sku]
-        metadata = {'sku': sku, 'image': image, 'names': names}
+#         sku = str(data['sku'])
+#         image = data['image']
+#         names = data['names']
+#         doc_id = f"{sku}:{image}"
+#         title = f"{sku} {names}"
+#         content = f"{sku} {names} {image}"
+#         tags = [sku]
+#         metadata = {'sku': sku, 'image': image, 'names': names}
         
-        success = redisearch_service.index_document(doc_id, title, content, tags, metadata)
+#         success = redisearch_service.index_document(doc_id, title, content, tags, metadata)
         
-        if success:
-            return jsonify({
-                'success': True,
-                'message': f'Document {doc_id} indexed successfully'
-            }), 201
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'Failed to index document'
-            }), 500
-    except Exception as e:
-        logging.error(f"Error in index_document: {e}")
-        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+#         if success:
+#             return jsonify({
+#                 'success': True,
+#                 'message': f'Document {doc_id} indexed successfully'
+#             }), 201
+#         else:
+#             return jsonify({
+#                 'success': False,
+#                 'error': 'Failed to index document'
+#             }), 500
+#     except Exception as e:
+#         logging.error(f"Error in index_document: {e}")
+#         return jsonify({'error': f'Internal server error: {str(e)}'}), 500
 
 
 @search_bp.route('/fulltext', methods=['GET'])

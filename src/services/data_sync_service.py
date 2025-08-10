@@ -1,6 +1,6 @@
 import logging
 from typing import Dict
-from src.services.postgres_service import postgres_service
+from src.services import postgres_service
 import time
 
 class DataSyncService:
@@ -55,19 +55,19 @@ class DataSyncService:
                         search_doc = self._convert_product_to_search_doc(product)
                         success = self.redis_search.index_document(
                             doc_id=search_doc['id'],
-                            title=search_doc['title'],
-                            content=search_doc['content'],
-                            tags=search_doc['tags'],
+                            name=search_doc['name'],
+                            price=search_doc['price'],
+                            image=search_doc['image'],
                             metadata=search_doc['metadata']
                         )
                         if success:
                             indexed_count += 1
                         else:
                             failed_count += 1
-                            logging.warning(f"Failed to index image {product.get('sku')}")
+                            logging.warning(f"Failed to index image {product.get('name')}")
                     except Exception as e:
                         failed_count += 1
-                        error_msg = f"Error processing image {product.get('sku', 'unknown')}: {str(e)}"
+                        error_msg = f"Error processing image {product.get('name', 'unknown')}: {str(e)}"
                         logging.error(error_msg)
                         results['errors'].append(error_msg)
                 if batch_num % 10 == 0:
@@ -88,26 +88,18 @@ class DataSyncService:
     
     def _convert_product_to_search_doc(self, product: Dict) -> Dict:
         """
-        Convert a zando_images record to a search document format for image search.
+        Convert a product record to a search document format for image search.
         """
-        sku = str(product.get('sku', ''))
+        id = product.get('id','')
         image = product.get('image', '')
-        names = product.get('names', '')
-        title = f"{sku} {names}".strip()
-        content = f"{sku} {names} {image}".strip()
-        tags = [sku] if sku else []
-        metadata = {
-            'sku': sku,
-            'image': image,
-            'names': names,
-            'source': 'zando_images',
-            'indexed_at': time.strftime('%Y-%m-%d %H:%M:%S')
-        }
+        name = product.get('name', '')
+        price = product.get('price', '')
+        metadata = product.get('metadata', '')
         return {
-            'id': f"{sku}:{image}",
-            'title': title,
-            'content': content,
-            'tags': tags,
+            'id': id,
+            'name': name,
+            'price': price,
+            'image':image,
             'metadata': metadata
         }
     

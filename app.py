@@ -4,11 +4,9 @@ from config import redis_config
 import logging
 import os
 
-from src.api.search_routes import search_bp
-from src.api.sync_routes import sync_bp
-from src.api.postgres_routes import postgres_bp
-from src.core.redisearch_service import RediSearchService
-from src.services.postgres_service import PostgreSQLService
+from src.api import search_bp, postgres_bp, sync_bp
+from src.core import RediSearchService
+from src.services import PostgreSQLService
 
 logging.basicConfig(
     level=logging.INFO,

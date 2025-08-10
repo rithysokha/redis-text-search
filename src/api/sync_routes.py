@@ -1,8 +1,6 @@
 from flask import Blueprint, request, jsonify
 import logging
-from src.services.data_sync_service import data_sync_service
-from src.services.postgres_service import postgres_service
-
+from src.services import data_sync_service, postgres_service
 sync_bp = Blueprint('sync', __name__)
 
 

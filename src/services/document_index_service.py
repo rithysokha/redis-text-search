@@ -2,7 +2,7 @@ import json
 import logging
 from datetime import datetime
 from typing import List, Dict
-from ..utils.text_processor import TextProcessor
+from src.utils import TextProcessor
 
 
 class DocumentIndexService:
@@ -12,21 +12,19 @@ class DocumentIndexService:
         self.inverted_index_key = inverted_index_key
         self.text_processor = TextProcessor()
 
-    def index_document(self, doc_id: str, title: str, content: str, tags: List[str] = None, metadata: Dict = None) -> bool:
+    def index_document(self, doc_id: str, name: str, price: str, image:str , metadata: Dict = None) -> bool:
         """Index document using RediSearch native indexing"""
         try:
             document = {
-                'title': title,
-                'content': content,
-                'tags': ','.join(tags) if tags else '',
-                'metadata': json.dumps(metadata) if metadata else '{}',
+                'id':doc_id,
+                'name': name,
+                'price': price,
+                'image': image,
+                'metadata.name': metadata.get('name', name),
+                'metadata.tags': ', '.join(metadata.get('tags', [])) if isinstance(metadata.get('tags'), list) else str(metadata.get('tags', '')),
+                'metadata.brand': metadata.get('brand', ''),
                 'indexed_at': datetime.now().isoformat()
             }
-            
-            if metadata:
-                document['sku'] = metadata.get('sku', '')
-                document['names'] = metadata.get('names', '')
-                document['image'] = metadata.get('image', '')
             
             self.redis_client.hset(
                 f"{self.documents_key}:{doc_id}",

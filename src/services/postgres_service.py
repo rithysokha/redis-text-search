@@ -84,12 +84,12 @@ class PostgreSQLService:
     
     def fetch_products(self, limit: int = None, offset: int = 0) -> List[Dict]:
         """
-        Fetch images from zando_images table: image, sku, names
+        Fetch images from product table: image, namge, price metadata
         """
         try:
             conn = self.get_connection()
             with conn.cursor() as cursor:
-                query = f"SELECT image, sku, names FROM {self.table} ORDER BY sku"
+                query = f"SELECT id, image_url as image, CAST(FLOOR(price_numeric) AS VARCHAR) AS price, name, metadata FROM {self.table}"
                 if limit:
                     query += f" LIMIT {limit}"
                 if offset:
@@ -99,9 +99,11 @@ class PostgreSQLService:
                 result = []
                 for row in rows:
                     d = dict(row)
-                    d['sku'] = str(d.get('sku', ''))
+                    d['id'] = str(d.get('id', ''))
                     d['image'] = d.get('image', '')
-                    d['names'] = d.get('names', '')
+                    d['name'] = d.get('name', '')
+                    d['price'] = d.get('price', '')
+                    d['metadata'] = d.get('metadata', '')
                     result.append(d)
                 logging.info(f"Fetched {len(result)} images from PostgreSQL")
                 return result

@@ -1,7 +1,7 @@
 import json
 import logging
 from typing import List, Dict
-from ..utils.text_processor import TextProcessor
+from src.utils import TextProcessor
 
 
 class SearchService:
@@ -24,11 +24,13 @@ class SearchService:
                     'ON', 'HASH',
                     'PREFIX', '1', f"{self.documents_key}:",
                     'SCHEMA',
-                    'title', 'TEXT', 'WEIGHT', '3.0',
-                    'content', 'TEXT', 'WEIGHT', '1.0',
-                    'tags', 'TEXT', 'WEIGHT', '2.0',
-                    'sku', 'TAG', 'SORTABLE',
-                    'names', 'TEXT', 'WEIGHT', '2.0'
+                    'id', 'TEXT', 'SORTABLE',
+                    'name', 'TEXT', 'WEIGHT', '3.0',
+                    'price', 'TEXT', 'WEIGHT', '1.0',
+                    'metadata.name', 'TEXT', 'WEIGHT', '2.0',
+                    'metadata.tags', 'TEXT', 'WEIGHT', '1.0',
+                    'metadata.brand', 'TEXT', 'WEIGHT', '1.0',
+                    'metadata.price', 'TEXT', 'WEIGHT', '1.0',
                 )
                 logging.info(f"Created RediSearch index: {self.index_name}")
             except Exception as e:
@@ -43,7 +45,7 @@ class SearchService:
             self._ensure_index_exists()
             
             search_queries = [
-                f"@title:({query}) | @content:({query}) | @names:({query})",
+                f"@name:({query}) | @price:({query}) | @metadata.name:({query})",
                 f"({query})",
                 f"{query}",
                 "*"
@@ -84,20 +86,27 @@ class SearchService:
                     doc_fields = result[i + 1]
                     
                     doc_dict = {}
+                    metadata_dict = {}
+                    
                     for j in range(0, len(doc_fields), 2):
                         if j + 1 < len(doc_fields):
                             field_name = self._decode_bytes(doc_fields[j])
                             field_value = self._decode_bytes(doc_fields[j + 1])
-                            doc_dict[field_name] = field_value
+                            
+                            if field_name.startswith('metadata.'):
+                                meta_field = field_name[9:]
+                                metadata_dict[meta_field] = field_value
+                                if 'metadata.tags' in doc_fields:
+                                    tags_value = metadata_dict.get('tags', '')
+                                    metadata_dict['tags'] = [tag.strip() for tag in tags_value.split(',') if tag.strip()] if tags_value else []
+                                else:
+                                    doc_dict['tags'] = []
+                            else:
+                                doc_dict[field_name] = field_value
                     
                     doc_dict['id'] = self._decode_bytes(doc_id)
                     
-                    doc_dict['tags'] = doc_dict.get('tags', '').split(',') if doc_dict.get('tags') else []
-                    
-                    try:
-                        doc_dict['metadata'] = json.loads(doc_dict.get('metadata', '{}'))
-                    except (json.JSONDecodeError, TypeError):
-                        doc_dict['metadata'] = {}
+                    doc_dict['metadata'] = metadata_dict
                     
                     documents.append(doc_dict)
             
@@ -135,7 +144,7 @@ class SearchService:
                     fuzzy_terms.append(f"%%%{word}%%%")
             
             search_queries = [
-                f"@title:({' | '.join(fuzzy_terms)}) | @content:({' | '.join(fuzzy_terms)}) | @names:({' | '.join(fuzzy_terms)})",
+                f"@metadata.name:({' | '.join(fuzzy_terms)}) | @price:({' | '.join(fuzzy_terms)}) | @name:({' | '.join(fuzzy_terms)})",
                 " | ".join(fuzzy_terms),
                 f"({' | '.join(fuzzy_terms)})"
             ]

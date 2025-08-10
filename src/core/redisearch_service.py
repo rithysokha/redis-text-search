@@ -1,9 +1,7 @@
 import logging
 from typing import List, Dict
 from config import redis_config
-from ..services.suggestion_service import SuggestionService
-from ..services.document_index_service import DocumentIndexService
-from ..services.search_service import SearchService
+from src.services import SuggestionService, DocumentIndexService, SearchService
 
 
 class RediSearchService:
@@ -36,8 +34,8 @@ class RediSearchService:
     def clear_suggestions(self) -> bool:
         return self.suggestion_service.clear_suggestions()
 
-    def index_document(self, doc_id: str, title: str, content: str, tags: List[str] = None, metadata: Dict = None) -> bool:
-        return self.document_service.index_document(doc_id, title, content, tags, metadata)
+    def index_document(self, doc_id: str, name: str, price: str, image: str, metadata: Dict = None) -> bool:
+        return self.document_service.index_document(doc_id, name, price, image, metadata)
 
     def full_text_search(self, query: str, limit: int = 10) -> List[Dict]:
         return self.search_service.full_text_search(query, limit)
@@ -54,27 +52,22 @@ class RediSearchService:
                 'errors': [],
                 'suggestions_added': 0
             }
-            
+            self.search_service._ensure_index_exists()
             initial_count = self.suggestion_service.get_suggestion_length()
             
             for product in postgres_products:
-                sku = str(product.get('sku', ''))
-                names = str(product.get('names', ''))
+                price = str(product.get('price', ''))
+                name = str(product.get('name', ''))
                 image = str(product.get('image', ''))
-                
-                if sku and names and len(names.strip()) > 0:
-                    doc_id = f"{sku}:{image}" if image else sku
-                    title = f"{sku} {names}"
-                    content = f"{sku} {names} {image}".strip()
-                    tags = [sku]
-                    metadata = {'sku': sku, 'names': names, 'image': image}
-                    
-                    if self.index_document(doc_id, title, content, tags, metadata):
+                doc_id = str(product.get('id'))
+                metadata = product.get('metadata')
+                if price and name and len(name.strip()) > 0:
+                    if self.index_document(doc_id, name, price,image , metadata):
                         weight = 1.0
-                        self.suggestion_service.index_document_for_suggestions(sku, names, weight)
+                        self.suggestion_service.index_document_for_suggestions(price, name, weight)
                         stats['successfully_indexed'] += 1
                     else:
-                        stats['errors'].append(f"Failed to index SKU {sku}")
+                        stats['errors'].append(f"Failed to index price {price}")
             
             final_count = self.suggestion_service.get_suggestion_length()
             stats['suggestions_added'] = final_count - initial_count
