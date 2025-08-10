@@ -26,11 +26,13 @@ class SearchService:
                     'SCHEMA',
                     'id', 'TEXT', 'SORTABLE',
                     'name', 'TEXT', 'WEIGHT', '3.0',
-                    'price', 'TEXT', 'WEIGHT', '1.0',
+                    'price', 'NUMERIC', 'SORTABLE',
+                    'image', 'TEXT', 'WEIGHT', '1.0',
+                    'url', 'TEXT', 'WEIGHT', '1.0',
                     'metadata.name', 'TEXT', 'WEIGHT', '2.0',
                     'metadata.tags', 'TEXT', 'WEIGHT', '1.0',
                     'metadata.brand', 'TEXT', 'WEIGHT', '1.0',
-                    'metadata.price', 'TEXT', 'WEIGHT', '1.0',
+                    'metadata.price', 'NUMERIC', 'SORTABLE'
                 )
                 logging.info(f"Created RediSearch index: {self.index_name}")
             except Exception as e:

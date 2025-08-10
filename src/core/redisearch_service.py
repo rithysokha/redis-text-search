@@ -34,8 +34,8 @@ class RediSearchService:
     def clear_suggestions(self) -> bool:
         return self.suggestion_service.clear_suggestions()
 
-    def index_document(self, doc_id: str, name: str, price: str, image: str, metadata: Dict = None) -> bool:
-        return self.document_service.index_document(doc_id, name, price, image, metadata)
+    def index_document(self, doc_id: str, name: str, price: float, image: str,  url: str, metadata: Dict = None) -> bool:
+        return self.document_service.index_document(doc_id, name, price, image, url, metadata )
 
     def full_text_search(self, query: str, limit: int = 10) -> List[Dict]:
         return self.search_service.full_text_search(query, limit)
@@ -56,13 +56,14 @@ class RediSearchService:
             initial_count = self.suggestion_service.get_suggestion_length()
             
             for product in postgres_products:
-                price = str(product.get('price', ''))
+                price = (product.get('price',0.0))
                 name = str(product.get('name', ''))
                 image = str(product.get('image', ''))
                 doc_id = str(product.get('id'))
                 metadata = product.get('metadata')
+                url = product.get('source_url')
                 if price and name and len(name.strip()) > 0:
-                    if self.index_document(doc_id, name, price,image , metadata):
+                    if self.index_document(doc_id, name, price,image , url, metadata):
                         weight = 1.0
                         self.suggestion_service.index_document_for_suggestions(price, name, weight)
                         stats['successfully_indexed'] += 1

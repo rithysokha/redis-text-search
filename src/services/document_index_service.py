@@ -12,7 +12,7 @@ class DocumentIndexService:
         self.inverted_index_key = inverted_index_key
         self.text_processor = TextProcessor()
 
-    def index_document(self, doc_id: str, name: str, price: str, image:str , metadata: Dict = None) -> bool:
+    def index_document(self, doc_id: str, name: str, price: float, image:str , url:str, metadata: Dict = None) -> bool:
         """Index document using RediSearch native indexing"""
         try:
             document = {
@@ -20,6 +20,7 @@ class DocumentIndexService:
                 'name': name,
                 'price': price,
                 'image': image,
+                'url' : url,
                 'metadata.name': metadata.get('name', name),
                 'metadata.tags': ', '.join(metadata.get('tags', [])) if isinstance(metadata.get('tags'), list) else str(metadata.get('tags', '')),
                 'metadata.brand': metadata.get('brand', ''),

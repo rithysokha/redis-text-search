@@ -84,12 +84,12 @@ class PostgreSQLService:
     
     def fetch_products(self, limit: int = None, offset: int = 0) -> List[Dict]:
         """
-        Fetch images from product table: image, namge, price metadata
+        Fetch images from product table: image, namge, price metadata, source_url
         """
         try:
             conn = self.get_connection()
             with conn.cursor() as cursor:
-                query = f"SELECT id, image_url as image, CAST(FLOOR(price_numeric) AS VARCHAR) AS price, name, metadata FROM {self.table}"
+                query = f"select distinct c21 as id , c2 as price, c18 as image, c22 as name, '' as metadata, c11 as source_url from {self.table}"
                 if limit:
                     query += f" LIMIT {limit}"
                 if offset:
@@ -99,16 +99,11 @@ class PostgreSQLService:
                 result = []
                 for row in rows:
                     d = dict(row)
-                    d['id'] = str(d.get('id', ''))
-                    d['image'] = d.get('image', '')
-                    d['name'] = d.get('name', '')
-                    d['price'] = d.get('price', '')
-                    d['metadata'] = d.get('metadata', '')
                     result.append(d)
-                logging.info(f"Fetched {len(result)} images from PostgreSQL")
+                logging.info(f"Fetched {len(result)} products from PostgreSQL")
                 return result
         except Exception as e:
-            logging.error(f"Error fetching images: {e}")
+            logging.error(f"Error fetching product: {e}")
             return []
     
     def get_products_count(self) -> int:
